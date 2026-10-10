@@ -1,0 +1,98 @@
+# =============================================================================
+# Runway Core Banking — Application Configuration
+# All secrets come from environment variables (twelve-factor app principle).
+# For local dev, export them from the root .env:
+#   export $(grep -v '^#' ../.env | xargs)
+# =============================================================================
+
+spring:
+  application:
+    name: runway-core-banking
+
+  # ── DataSource ──────────────────────────────────────────────────────────────
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/runway_db}
+    username: ${SPRING_DATASOURCE_USERNAME:runway_admin}
+    password: ${SPRING_DATASOURCE_PASSWORD:runway_secure_pass_2026}
+    driver-class-name: org.postgresql.Driver
+    # HikariCP connection pool — Spring Boot's default, best-in-class for PostgreSQL
+    hikari:
+      pool-name: RunwayHikariPool
+      maximum-pool-size: 10          # max concurrent DB connections
+      minimum-idle: 2
+      connection-timeout: 30000      # ms — throw if no connection in 30s
+      idle-timeout: 600000           # ms — release idle connections after 10 min
+
+  # ── JPA / Hibernate ─────────────────────────────────────────────────────────
+  jpa:
+    hibernate:
+      # validate: Hibernate checks entity ↔ table mapping but does NOT touch schema
+      # Flyway owns DDL; Hibernate only reads/writes data.
+      # WHY: If Hibernate auto-created tables it would bypass Flyway versioning.
+      ddl-auto: validate
+    show-sql: false                  # flip to true for local SQL debugging
+    open-in-view: false              # never use OSIV — it hides N+1 query bugs
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+
+  # ── Flyway ──────────────────────────────────────────────────────────────────
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false       # fail fast if schema exists without Flyway history
+    validate-on-migrate: true
+
+  # ── RabbitMQ ────────────────────────────────────────────────────────────────
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+# ── Server ──────────────────────────────────────────────────────────────────
+server:
+  port: ${CORE_BANKING_PORT:8080}
+  error:
+    include-message: always          # include error message in responses (dev only)
+    include-binding-errors: always
+
+# ── JWT Configuration ────────────────────────────────────────────────────────
+# Read by JwtTokenProvider. These are NOT Spring built-ins — they're custom.
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    access-expiry-minutes: ${JWT_ACCESS_EXPIRY_MINUTES:15}
+    refresh-expiry-days: ${JWT_REFRESH_EXPIRY_DAYS:30}
+  hmac:
+    secret: ${RUNWAY_HMAC_SECRET}
+  password-reset:
+    expiry-minutes: ${RESET_TOKEN_EXPIRY_MINUTES:15}
+
+# ── Actuator (health + prometheus metrics) ───────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus, info, metrics
+  endpoint:
+    health:
+      show-details: always
+  health:
+    # RabbitMQ is not running yet (commented out in docker-compose).
+    # Exclude it from the overall health roll-up until the event bus is enabled.
+    rabbit:
+      enabled: false
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# ── Logging ─────────────────────────────────────────────────────────────────
+logging:
+  level:
+    com.runway: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO

@@ -1,0 +1,105 @@
+# =============================================================================
+# Runway — Docker Compose
+# Start the DB:  docker compose up -d postgres
+# Full stack later: docker compose up -d
+# =============================================================================
+
+services:
+
+  # ── PostgreSQL 16 ──────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16
+    container_name: runway_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── RabbitMQ 3.13 (management UI on :15672) ────────────────────────────────
+  # Uncomment when you're ready to add the event bus
+  # rabbitmq:
+  #   image: rabbitmq:3.13-management
+  #   container_name: runway_rabbitmq
+  #   restart: unless-stopped
+  #   ports:
+  #     - "5672:5672"
+  #     - "15672:15672"
+  #   healthcheck:
+  #     test: rabbitmq-diagnostics -q ping
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  # ── Ollama (GPU passthrough for RTX 5050 on Legion 5) ─────────────────────
+  # Uncomment when ready; after first up run:
+  #   docker exec -it runway_ollama ollama pull llama3.1:8b-instruct-q4_K_M
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: runway_ollama
+  #   restart: unless-stopped
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_models:/root/.ollama
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+
+  # ── Core Banking (Spring Boot) ─────────────────────────────────────────────
+  # Uncomment once the JAR is stable; run locally with mvn spring-boot:run for now
+  # core-banking:
+  #   build: ./core-banking
+  #   container_name: runway_core_banking
+  #   env_file: .env
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   ports:
+  #     - "${CORE_BANKING_PORT}:8080"
+
+  # ── AI Engine (FastAPI + Python) ───────────────────────────────────────────
+  # ai-engine:
+  #   build: ./ai-engine
+  #   container_name: runway_ai_engine
+  #   env_file: .env
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   ports:
+  #     - "${AI_ENGINE_PORT}:8000"
+
+  # ── API Gateway (Spring Cloud Gateway) ────────────────────────────────────
+  # api-gateway:
+  #   build: ./api-gateway
+  #   container_name: runway_api_gateway
+  #   env_file: .env
+  #   depends_on: [core-banking, ai-engine]
+  #   ports:
+  #     - "${GATEWAY_PORT}:8888"
+
+  # ── Frontend (Next.js 14) ──────────────────────────────────────────────────
+  # web:
+  #   build: ./web
+  #   container_name: runway_web
+  #   env_file: .env
+  #   depends_on: [api-gateway]
+  #   ports:
+  #     - "${WEB_PORT}:3000"
+
+volumes:
+  pgdata:
+  ollama_models:

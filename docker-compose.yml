@@ -60,16 +60,20 @@ services:
   #             capabilities: [gpu]
 
   # ── Core Banking (Spring Boot) ─────────────────────────────────────────────
-  # Uncomment once the JAR is stable; run locally with mvn spring-boot:run for now
-  # core-banking:
-  #   build: ./core-banking
-  #   container_name: runway_core_banking
-  #   env_file: .env
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   ports:
-  #     - "${CORE_BANKING_PORT}:8080"
+  core-banking:
+    build: ./core-banking
+    container_name: runway_core_banking
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Override host-specific URLs with Docker internal network DNS names
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      RABBITMQ_HOST: rabbitmq
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${CORE_BANKING_PORT}:8080"
 
   # ── AI Engine (FastAPI + Python) ───────────────────────────────────────────
   # ai-engine:

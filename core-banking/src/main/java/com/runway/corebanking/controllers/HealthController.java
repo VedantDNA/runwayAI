@@ -1,4 +1,4 @@
-package com.runway.corebanking.controller;
+package com.runway.corebanking.controllers;
 
 import com.runway.corebanking.dto.HealthResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,11 +18,11 @@ public class HealthController {
 
     @GetMapping
     @Operation(
-        summary = "Check service health",
-        description = "Returns current operational status and server timestamp for runway-core-banking service.",
-        responses = {
-            @ApiResponse(responseCode = "200", description = "Service is up and operational")
-        }
+            summary = "Check service health",
+            description = "Returns current operational status and server timestamp for runway-core-banking service.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Service is up and operational")
+            }
     )
     public ResponseEntity<HealthResponse> checkHealth() {
         HealthResponse response = HealthResponse.builder()
